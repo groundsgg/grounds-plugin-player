@@ -1,0 +1,38 @@
+version: v2beta1
+name: velocity-player
+
+deployments:
+  app:
+    namespace: games
+    helm:
+      releaseName: velocity-player
+      chart:
+        name: oci://ghcr.io/groundsgg/charts/grounds-service
+        version: 0.1.0
+      values:
+        deployment:
+          image:
+            repository: velocity
+          containerPort: 25565
+        service:
+          enabled: true
+          port: 25565
+          targetPort: 25565
+
+dev:
+  app:
+    # Search for the container that runs this image
+    imageSelector: velocity
+    # Replace the container image with this image
+    devImage: ghcr.io/groundsgg/velocity:v0.2.0
+    sync:
+      - path: ./build/libs/*.jar:/app/plugins/*.jar
+        file: true
+    # Open a terminal and use the following command to start it
+    terminal:
+      command: |
+        echo "Use ./start.sh to start the server"
+        /bin/sh
+    # Forward the following ports to be able to access your application via localhost
+    ports:
+      - port: "25565"
