@@ -4,8 +4,8 @@ plugins {
 
 dependencies {
     implementation(project(":common"))
-    compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
-    annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
+    compileOnly("com.velocitypowered:velocity-api:4.0.0-SNAPSHOT")
+    annotationProcessor("com.velocitypowered:velocity-api:4.0.0-SNAPSHOT")
 }
 
 tasks.build {
