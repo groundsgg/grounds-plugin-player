@@ -1,4 +1,7 @@
-plugins { id("com.google.protobuf") version "0.9.6" }
+plugins {
+    id("gg.grounds.kotlin-conventions") version "0.2.0"
+    id("com.google.protobuf") version "0.9.6"
+}
 
 val grpcVersion = "1.78.0"
 val protobufVersion = "4.33.4"
@@ -18,7 +21,6 @@ dependencies {
     implementation("com.google.protobuf:protobuf-java:$protobufVersion")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")
     implementation("io.grpc:grpc-stub:$grpcVersion")
-    runtimeOnly("io.grpc:grpc-netty-shaded:$grpcVersion")
     compileOnly("javax.annotation:javax.annotation-api:1.3.2")
 
     protobuf("gg.grounds:library-grpc-contracts-player:0.1.0")
