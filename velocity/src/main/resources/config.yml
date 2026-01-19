@@ -1,5 +1,5 @@
 playerPresence:
-  target: "dns:///service-player.api:9000"
+  target: "dns:///service-player.api.svc.cluster.local:9000"
   plaintext: true
   timeoutMillis: 2000
 
