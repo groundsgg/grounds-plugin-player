@@ -10,10 +10,21 @@ import com.velocitypowered.api.proxy.ProxyServer
 import gg.grounds.config.PluginConfigLoader
 import gg.grounds.listener.PlayerConnectionListener
 import gg.grounds.presence.PlayerPresenceService
+import io.grpc.LoadBalancerRegistry
+import io.grpc.NameResolverRegistry
+import io.grpc.internal.DnsNameResolverProvider
+import io.grpc.internal.PickFirstLoadBalancerProvider
 import java.nio.file.Path
 import org.slf4j.Logger
 
-@Plugin(id = "plugin-player", name = "Grounds Player Plugin")
+@Plugin(
+    id = "plugin-player",
+    name = "Grounds Player Plugin",
+    version = BuildInfo.VERSION,
+    description = "",
+    authors = ["Grounds Development Team and contributors"],
+    url = "https://github.com/groundsgg/plugin-player",
+)
 class GroundsPluginPlayer
 @Inject
 constructor(
@@ -28,7 +39,9 @@ constructor(
     }
 
     @Subscribe
-    fun onInitialize(@Suppress("UNUSED_PARAMETER") event: ProxyInitializeEvent) {
+    fun onInitialize(event: ProxyInitializeEvent) {
+        registerProviders()
+
         val config = PluginConfigLoader(logger, dataDirectory).loadOrCreate()
         val clientConfig = config.playerPresence.toClientConfig()
         playerPresenceService.configure(clientConfig)
@@ -51,7 +64,18 @@ constructor(
     }
 
     @Subscribe
-    fun onShutdown(@Suppress("UNUSED_PARAMETER") event: ProxyShutdownEvent) {
+    fun onShutdown(event: ProxyShutdownEvent) {
         playerPresenceService.close()
+    }
+
+    /**
+     * Registers gRPC name resolver and load balancer providers so client channels can resolve DNS
+     * targets and select endpoints when running inside Velocity's shaded environment. This manual
+     * step avoids startup IllegalArgumentExceptions caused by shaded classes not being discoverable
+     * via the default provider lookup.
+     */
+    private fun registerProviders() {
+        NameResolverRegistry.getDefaultRegistry().register(DnsNameResolverProvider())
+        LoadBalancerRegistry.getDefaultRegistry().register(PickFirstLoadBalancerProvider())
     }
 }
