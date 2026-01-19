@@ -9,15 +9,15 @@ import tools.jackson.dataformat.yaml.YAMLMapper
 import tools.jackson.module.kotlin.KotlinModule
 import tools.jackson.module.kotlin.readValue
 
-class PluginConfigLoader(private val logger: Logger, private val dataDirectory: Path) {
+class MessagesConfigLoader(private val logger: Logger, private val dataDirectory: Path) {
     private val mapper: YAMLMapper =
         YAMLMapper.builder()
             .addModule(KotlinModule.Builder().build())
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build()
 
-    fun loadOrCreate(): PluginConfig {
-        val yamlFile = dataDirectory.resolve("config.yml")
+    fun loadOrCreate(): MessagesConfig {
+        val yamlFile = dataDirectory.resolve("messages.yml")
 
         return try {
             Files.createDirectories(dataDirectory)
@@ -28,29 +28,30 @@ class PluginConfigLoader(private val logger: Logger, private val dataDirectory: 
 
             Files.newInputStream(yamlFile).use { input -> parseYaml(input) }
         } catch (e: Exception) {
-            logger.warn("Unable to load config from {}", yamlFile, e)
-            PluginConfig()
+            logger.warn("Failed to load messages config (path={})", yamlFile, e)
+            MessagesConfig()
         }
     }
 
-    private fun parseYaml(input: InputStream): PluginConfig {
+    private fun parseYaml(input: InputStream): MessagesConfig {
         return try {
-            mapper.readValue<PluginConfig>(input)
+            mapper.readValue<MessagesConfig>(input)
         } catch (e: Exception) {
-            logger.warn("Unable to parse config.yml; using defaults", e)
-            PluginConfig()
+            logger.warn("Failed to parse messages config; using defaults (path=messages.yml)", e)
+            MessagesConfig()
         }
     }
 
     private fun copyDefaultConfig(target: Path) {
-        val resourceName = "config.yml"
+        val resourceName = "messages.yml"
         val inputStream = javaClass.classLoader.getResourceAsStream(resourceName)
         if (inputStream == null) {
             logger.warn(
-                "Default config resource {} not found; writing generated defaults",
+                "Default messages resource missing; writing defaults (resource={}, path={})",
                 resourceName,
+                target,
             )
-            writeYaml(target, PluginConfig())
+            writeYaml(target, MessagesConfig())
             return
         }
 
@@ -59,7 +60,7 @@ class PluginConfigLoader(private val logger: Logger, private val dataDirectory: 
         }
     }
 
-    private fun writeYaml(target: Path, config: PluginConfig) {
+    private fun writeYaml(target: Path, config: MessagesConfig) {
         Files.newOutputStream(target).use { output ->
             output.writer(Charsets.UTF_8).use { writer -> mapper.writeValue(writer, config) }
         }

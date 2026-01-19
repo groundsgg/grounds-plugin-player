@@ -15,13 +15,12 @@ class GrpcPlayerPresenceClient
 private constructor(
     private val channel: ManagedChannel,
     private val stub: PlayerPresenceServiceGrpc.PlayerPresenceServiceBlockingStub,
-    private val config: PlayerPresenceClientConfig,
 ) : AutoCloseable {
     fun tryLogin(playerId: UUID): PlayerLoginResult {
         return try {
             val reply =
                 stub
-                    .withDeadlineAfter(config.timeout.toMillis(), TimeUnit.MILLISECONDS)
+                    .withDeadlineAfter(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                     .tryPlayerLogin(
                         PlayerLoginRequest.newBuilder().setPlayerId(playerId.toString()).build()
                     )
@@ -39,7 +38,7 @@ private constructor(
     fun logout(playerId: UUID): PlayerLogoutReply {
         return try {
             stub
-                .withDeadlineAfter(config.timeout.toMillis(), TimeUnit.MILLISECONDS)
+                .withDeadlineAfter(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .playerLogout(
                     PlayerLogoutRequest.newBuilder().setPlayerId(playerId.toString()).build()
                 )
@@ -64,14 +63,12 @@ private constructor(
     }
 
     companion object {
-        fun create(config: PlayerPresenceClientConfig): GrpcPlayerPresenceClient {
-            val channelBuilder = ManagedChannelBuilder.forTarget(config.target)
-            if (config.plaintext) {
-                channelBuilder.usePlaintext()
-            }
+        fun create(target: String): GrpcPlayerPresenceClient {
+            val channelBuilder = ManagedChannelBuilder.forTarget(target)
+            channelBuilder.usePlaintext()
             val channel = channelBuilder.build()
             val stub = PlayerPresenceServiceGrpc.newBlockingStub(channel)
-            return GrpcPlayerPresenceClient(channel, stub, config)
+            return GrpcPlayerPresenceClient(channel, stub)
         }
 
         private fun errorLogoutReply(message: String): PlayerLogoutReply =
@@ -79,5 +76,7 @@ private constructor(
 
         private fun isServiceUnavailable(status: Status.Code): Boolean =
             status == Status.Code.UNAVAILABLE || status == Status.Code.DEADLINE_EXCEEDED
+
+        private const val DEFAULT_TIMEOUT_MS = 2000L
     }
 }

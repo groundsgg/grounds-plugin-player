@@ -7,7 +7,7 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
-import gg.grounds.config.PluginConfigLoader
+import gg.grounds.config.MessagesConfigLoader
 import gg.grounds.listener.PlayerConnectionListener
 import gg.grounds.presence.PlayerPresenceService
 import io.grpc.LoadBalancerRegistry
@@ -21,7 +21,7 @@ import org.slf4j.Logger
     id = "plugin-player",
     name = "Grounds Player Plugin",
     version = BuildInfo.VERSION,
-    description = "",
+    description = "A plugin which manages player related actions and data transactions",
     authors = ["Grounds Development Team and contributors"],
     url = "https://github.com/groundsgg/plugin-player",
 )
@@ -32,35 +32,30 @@ constructor(
     private val logger: Logger,
     @param:DataDirectory private val dataDirectory: Path,
 ) {
-    private val playerPresenceService = PlayerPresenceService(logger)
+    private val playerPresenceService = PlayerPresenceService()
 
     init {
-        logger.info("VelocityPlayerPlugin initialized")
+        logger.info("Initialized plugin (plugin=plugin-player, version={})", BuildInfo.VERSION)
     }
 
     @Subscribe
     fun onInitialize(event: ProxyInitializeEvent) {
         registerProviders()
 
-        val config = PluginConfigLoader(logger, dataDirectory).loadOrCreate()
-        val clientConfig = config.playerPresence.toClientConfig()
-        playerPresenceService.configure(clientConfig)
+        val messages = MessagesConfigLoader(logger, dataDirectory).loadOrCreate()
+        val target = resolveTarget()
+        playerPresenceService.configure(target)
 
         proxy.eventManager.register(
             this,
             PlayerConnectionListener(
                 logger = logger,
                 playerPresenceService = playerPresenceService,
-                messages = config.messages,
+                messages = messages,
             ),
         )
 
-        logger.info(
-            "PlayerPresence gRPC configured (target={}, plaintext={}, timeoutMs={})",
-            clientConfig.target,
-            clientConfig.plaintext,
-            clientConfig.timeout.toMillis(),
-        )
+        logger.info("Configured player presence gRPC client (target={})", target)
     }
 
     @Subscribe
@@ -77,5 +72,10 @@ constructor(
     private fun registerProviders() {
         NameResolverRegistry.getDefaultRegistry().register(DnsNameResolverProvider())
         LoadBalancerRegistry.getDefaultRegistry().register(PickFirstLoadBalancerProvider())
+    }
+
+    private fun resolveTarget(): String {
+        return System.getenv("PLAYER_PRESENCE_GRPC_TARGET")?.takeIf { it.isNotBlank() }
+            ?: error("Missing required environment variable PLAYER_PRESENCE_GRPC_TARGET")
     }
 }

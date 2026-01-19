@@ -4,7 +4,8 @@ import com.velocitypowered.api.event.EventTask
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.DisconnectEvent
 import com.velocitypowered.api.event.connection.PreLoginEvent
-import gg.grounds.config.PluginConfig
+import com.velocitypowered.api.util.UuidUtils
+import gg.grounds.config.MessagesConfig
 import gg.grounds.grpc.player.LoginStatus
 import gg.grounds.grpc.player.PlayerLoginReply
 import gg.grounds.player.presence.PlayerLoginResult
@@ -16,14 +17,12 @@ import org.slf4j.Logger
 class PlayerConnectionListener(
     private val logger: Logger,
     private val playerPresenceService: PlayerPresenceService,
-    private val messages: PluginConfig.Messages,
+    private val messages: MessagesConfig,
 ) {
     @Subscribe
     fun onPreLogin(event: PreLoginEvent): EventTask {
         val name = event.username
-        val playerId =
-            event.uniqueId
-                ?: UUID.nameUUIDFromBytes("OfflinePlayer:$name".toByteArray(Charsets.UTF_8))
+        val playerId = event.uniqueId ?: UuidUtils.generateOfflinePlayerUuid(name)
 
         return EventTask.async {
             when (val result = playerPresenceService.tryLogin(playerId)) {
@@ -34,18 +33,18 @@ class PlayerConnectionListener(
                 }
                 is PlayerLoginResult.Unavailable -> {
                     logger.warn(
-                        "player presence unavailable: {} ({}) reason={}",
-                        name,
+                        "Player presence login unavailable (playerId={}, username={}, reason={})",
                         playerId,
+                        name,
                         result.message,
                     )
                     deny(event, messages.serviceUnavailable)
                 }
                 is PlayerLoginResult.Error -> {
                     logger.warn(
-                        "player presence error: {} ({}) reason={}",
-                        name,
+                        "Player presence login failed (playerId={}, username={}, reason={})",
                         playerId,
+                        name,
                         result.message,
                     )
                     deny(event, messages.genericError)
@@ -61,13 +60,21 @@ class PlayerConnectionListener(
 
         return EventTask.async {
             val result = playerPresenceService.logout(playerId) ?: return@async
-            logger.info(
-                "player session logout: {} ({}) removed={} message={}",
-                name,
-                playerId,
-                result.removed,
-                result.message,
-            )
+            if (result.removed) {
+                logger.info(
+                    "Player session logout completed (playerId={}, username={}, message={})",
+                    playerId,
+                    name,
+                    result.message,
+                )
+            } else {
+                logger.warn(
+                    "Player session logout failed (playerId={}, username={}, message={})",
+                    playerId,
+                    name,
+                    result.message,
+                )
+            }
         }
     }
 
@@ -80,7 +87,12 @@ class PlayerConnectionListener(
         val kickMessage =
             when (reply.status) {
                 LoginStatus.LOGIN_STATUS_ACCEPTED -> {
-                    logger.info("player session created: {} ({})", name, playerId)
+                    logger.info(
+                        "Player session created (playerId={}, username={}, status={})",
+                        playerId,
+                        name,
+                        reply.status,
+                    )
                     return true
                 }
                 LoginStatus.LOGIN_STATUS_ALREADY_ONLINE -> messages.alreadyOnline
@@ -91,9 +103,9 @@ class PlayerConnectionListener(
             }
 
         logger.warn(
-            "player session rejected: {} ({}) status={} message={}",
-            name,
+            "Player session rejected (playerId={}, username={}, status={}, message={})",
             playerId,
+            name,
             reply.status,
             reply.message,
         )
