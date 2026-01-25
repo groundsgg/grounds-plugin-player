@@ -14,6 +14,7 @@ import gg.grounds.permissions.commands.PermissionsCommand
 import gg.grounds.permissions.listener.PermissionsConnectionListener
 import gg.grounds.permissions.listener.PermissionsSetupListener
 import gg.grounds.permissions.services.PermissionsAdminService
+import gg.grounds.permissions.services.PermissionsEventsSubscriber
 import gg.grounds.permissions.services.PermissionsService
 import gg.grounds.presence.PlayerPresenceService
 import gg.grounds.presence.listener.PlayerConnectionListener
@@ -43,6 +44,7 @@ constructor(
     private val permissionsService = PermissionsService(logger)
     private val permissionsCache = PermissionsCache(permissionsService, logger)
     private val permissionsAdminService = PermissionsAdminService(logger)
+    private val permissionsEventsSubscriber = PermissionsEventsSubscriber(logger, permissionsCache)
     private val environmentConfig = EnvironmentConfig()
 
     init {
@@ -56,6 +58,7 @@ constructor(
         val messages = MessagesConfigLoader(logger, dataDirectory).loadOrCreate()
         val presenceTarget = environmentConfig.presenceTarget()
         val permissionsTarget = environmentConfig.permissionsTarget(presenceTarget)
+        val permissionsEventsTarget = environmentConfig.permissionsEventsTarget(permissionsTarget)
         playerPresenceService.configure(presenceTarget)
         permissionsService.configure(permissionsTarget)
         permissionsAdminService.configure(permissionsTarget)
@@ -63,6 +66,10 @@ constructor(
             proxy,
             this,
             environmentConfig.permissionsRefreshIntervalSeconds(),
+        )
+        permissionsEventsSubscriber.configure(
+            permissionsEventsTarget,
+            environmentConfig.permissionsEventsServerId(),
         )
 
         proxy.eventManager.register(
@@ -91,6 +98,10 @@ constructor(
 
         logger.info("Configured player presence gRPC client (target={})", presenceTarget)
         logger.info("Configured permissions gRPC client (target={})", permissionsTarget)
+        logger.info(
+            "Configured permissions events gRPC client (target={})",
+            permissionsEventsTarget,
+        )
     }
 
     @Subscribe
@@ -99,6 +110,7 @@ constructor(
         permissionsCache.close()
         permissionsService.close()
         permissionsAdminService.close()
+        permissionsEventsSubscriber.close()
     }
 
     /**
